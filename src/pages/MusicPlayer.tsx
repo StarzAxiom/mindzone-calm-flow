@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BottomNav } from "@/components/BottomNav";
+import { SpotifyPlayer } from "@/components/SpotifyPlayer";
 import { useMusicPlayer, tracks } from "@/hooks/useMusicPlayer";
 
 const playlists = {
@@ -179,10 +180,13 @@ const MusicPlayer = () => {
           </div>
         </Card>
 
+        {/* Spotify Integration */}
+        <SpotifyPlayer />
+
         {/* Available Tracks */}
         <Card className="p-4 bg-card/80 backdrop-blur-sm border-border">
           <h2 className="text-lg font-semibold text-foreground mb-4">
-            Available Tracks
+            Built-in Tracks
           </h2>
           <div className="space-y-2">
             {tracks.map((track) => (
