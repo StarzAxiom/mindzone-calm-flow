@@ -140,8 +140,13 @@ const Profile = () => {
             </div>
           </div>
         </Card>
+
+        <p className="text-center text-xs text-muted-foreground italic">
+          "One mood at a time."
+        </p>
       </div>
 
+      <MiniPlayer />
       <BottomNav />
     </div>
   );

@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Music, Waves } from "lucide-react";
+import { Plus, Music, Waves, Focus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { BottomNav } from "@/components/BottomNav";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MoodButton } from "@/components/MoodButton";
+import { MiniPlayer } from "@/components/MiniPlayer";
+import { useMoodStorage } from "@/hooks/useMoodStorage";
 import { toast } from "sonner";
 
 const moods = [
@@ -20,7 +22,13 @@ const moods = [
 const Home = () => {
   const [showMoodDialog, setShowMoodDialog] = useState(false);
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  const { saveMood, getTodayMood } = useMoodStorage();
+  const [todayMood, setTodayMood] = useState(getTodayMood());
   const navigate = useNavigate();
+
+  useEffect(() => {
+    setTodayMood(getTodayMood());
+  }, [getTodayMood]);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -31,7 +39,13 @@ const Home = () => {
 
   const handleSaveMood = () => {
     if (selectedMood) {
-      toast.success("Mood saved to your calendar");
+      const moodData = moods.find(m => m.label === selectedMood);
+      if (moodData) {
+        const today = new Date().toISOString().split('T')[0];
+        saveMood(today, moodData.label, moodData.color, moodData.emoji);
+        setTodayMood({ date: today, mood: moodData.label, color: moodData.color, emoji: moodData.emoji });
+        toast.success("Mood saved to your calendar");
+      }
       setShowMoodDialog(false);
       setSelectedMood(null);
     }
@@ -53,17 +67,26 @@ const Home = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground mb-1">Today's Vibe</p>
-              <div className="flex items-center gap-3">
-                <span className="text-4xl">😌</span>
-                <div>
-                  <p className="font-semibold text-foreground">Calm</p>
-                  <p className="text-xs text-muted-foreground">
-                    Logged at 10:30 AM
-                  </p>
+              {todayMood ? (
+                <div className="flex items-center gap-3">
+                  <span className="text-4xl">{todayMood.emoji}</span>
+                  <div>
+                    <p className="font-semibold text-foreground">{todayMood.mood}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Logged today
+                    </p>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No mood logged yet</p>
+              )}
             </div>
-            <div className="w-2 h-24 rounded-full bg-mood-calm shadow-glow" />
+            {todayMood && (
+              <div 
+                className="w-2 h-24 rounded-full shadow-glow" 
+                style={{ backgroundColor: todayMood.color }}
+              />
+            )}
           </div>
         </Card>
 
@@ -77,14 +100,14 @@ const Home = () => {
             Add Mood
           </Button>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <Button
               onClick={() => navigate("/calm")}
               variant="secondary"
               className="h-16 rounded-2xl font-medium bg-card/80 backdrop-blur-sm border border-border hover:border-primary/50 transition-all"
             >
-              <Waves className="mr-2 w-5 h-5" />
-              Calm Zone
+              <Waves className="mr-2 w-4 h-4" />
+              Calm
             </Button>
 
             <Button
@@ -92,8 +115,17 @@ const Home = () => {
               variant="secondary"
               className="h-16 rounded-2xl font-medium bg-card/80 backdrop-blur-sm border border-border hover:border-primary/50 transition-all"
             >
-              <Music className="mr-2 w-5 h-5" />
-              Play Music
+              <Music className="mr-2 w-4 h-4" />
+              Music
+            </Button>
+
+            <Button
+              onClick={() => navigate("/calm")}
+              variant="secondary"
+              className="h-16 rounded-2xl font-medium bg-card/80 backdrop-blur-sm border border-border hover:border-primary/50 transition-all"
+            >
+              <Focus className="mr-2 w-4 h-4" />
+              Focus
             </Button>
           </div>
         </div>
@@ -148,6 +180,7 @@ const Home = () => {
         </DialogContent>
       </Dialog>
 
+      <MiniPlayer />
       <BottomNav />
     </div>
   );

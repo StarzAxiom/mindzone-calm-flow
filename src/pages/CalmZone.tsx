@@ -3,6 +3,7 @@ import { Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { BottomNav } from "@/components/BottomNav";
+import { MiniPlayer } from "@/components/MiniPlayer";
 import lofiPlant from "@/assets/lofi-plant.png";
 import calmWaves from "@/assets/calm-waves.png";
 
@@ -127,6 +128,7 @@ const CalmZone = () => {
         </Card>
       </div>
 
+      <MiniPlayer />
       <BottomNav />
     </div>
   );

@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { BottomNav } from "@/components/BottomNav";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MoodButton } from "@/components/MoodButton";
+import { MiniPlayer } from "@/components/MiniPlayer";
+import { useMoodStorage } from "@/hooks/useMoodStorage";
 import { toast } from "sonner";
 
-const moods = [
+const moodOptions = [
   { emoji: "😊", label: "Happy", color: "hsl(48 100% 70%)" },
   { emoji: "😌", label: "Calm", color: "hsl(200 70% 70%)" },
   { emoji: "⚡", label: "Energetic", color: "hsl(30 95% 65%)" },
@@ -20,6 +22,8 @@ const MoodCalendar = () => {
   const [showMoodDialog, setShowMoodDialog] = useState(false);
   const [selectedDate, setSelectedDate] = useState<number | null>(null);
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  const { saveMood, moods: savedMoods } = useMoodStorage();
+  const [moodData, setMoodData] = useState<Record<number, string>>({});
 
   const currentDate = new Date();
   const month = currentDate.toLocaleDateString("en", { month: "long" });
@@ -30,15 +34,18 @@ const MoodCalendar = () => {
   const firstDayOfMonth = new Date(year, currentDate.getMonth(), 1).getDay();
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
-  // Mock mood data (in real app, this would come from state/database)
-  const moodData: Record<number, string> = {
-    1: "hsl(48 100% 70%)",
-    3: "hsl(200 70% 70%)",
-    5: "hsl(30 95% 65%)",
-    8: "hsl(200 70% 70%)",
-    12: "hsl(48 100% 70%)",
-    15: "hsl(160 50% 70%)",
-  };
+  useEffect(() => {
+    // Load mood data for current month
+    const monthMoodData: Record<number, string> = {};
+    days.forEach(day => {
+      const dateStr = `${year}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const mood = savedMoods[dateStr];
+      if (mood) {
+        monthMoodData[day] = mood.color;
+      }
+    });
+    setMoodData(monthMoodData);
+  }, [savedMoods, currentDate, year, days]);
 
   const handleDateClick = (day: number) => {
     setSelectedDate(day);
@@ -47,7 +54,13 @@ const MoodCalendar = () => {
 
   const handleSaveMood = () => {
     if (selectedMood && selectedDate) {
-      toast.success(`Mood saved for ${month} ${selectedDate}`);
+      const moodInfo = moodOptions.find(m => m.label === selectedMood);
+      if (moodInfo) {
+        const dateStr = `${year}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate).padStart(2, '0')}`;
+        saveMood(dateStr, moodInfo.label, moodInfo.color, moodInfo.emoji);
+        setMoodData(prev => ({ ...prev, [selectedDate]: moodInfo.color }));
+        toast.success(`Mood saved for ${month} ${selectedDate}`);
+      }
       setShowMoodDialog(false);
       setSelectedMood(null);
       setSelectedDate(null);
@@ -128,7 +141,7 @@ const MoodCalendar = () => {
             Mood Legend
           </h3>
           <div className="grid grid-cols-3 gap-3">
-            {moods.map((mood) => (
+            {moodOptions.map((mood) => (
               <div key={mood.label} className="flex items-center gap-2">
                 <div
                   className="w-3 h-3 rounded-full"
@@ -152,7 +165,7 @@ const MoodCalendar = () => {
             </DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-3 gap-3 py-4">
-            {moods.map((mood) => (
+            {moodOptions.map((mood) => (
               <MoodButton
                 key={mood.label}
                 emoji={mood.emoji}
@@ -173,6 +186,7 @@ const MoodCalendar = () => {
         </DialogContent>
       </Dialog>
 
+      <MiniPlayer />
       <BottomNav />
     </div>
   );
