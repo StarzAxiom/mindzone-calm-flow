@@ -2,10 +2,8 @@ import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { BottomNav } from "@/components/BottomNav";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MoodButton } from "@/components/MoodButton";
-import { MiniPlayer } from "@/components/MiniPlayer";
 import { useMoodStorage } from "@/hooks/useMoodStorage";
 import { toast } from "sonner";
 
@@ -68,8 +66,8 @@ const MoodCalendar = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-calm pb-24 px-4">
-      <div className="max-w-md mx-auto pt-8 space-y-6 animate-fade-in">
+    <div className="min-h-screen bg-gradient-calm px-4 py-8">
+      <div className="max-w-md mx-auto space-y-6 animate-fade-in">
         {/* Header */}
         <div className="flex items-center justify-between">
           <Button variant="ghost" size="icon" className="rounded-full">
@@ -185,9 +183,6 @@ const MoodCalendar = () => {
           </Button>
         </DialogContent>
       </Dialog>
-
-      <MiniPlayer />
-      <BottomNav />
     </div>
   );
 };
