@@ -1,250 +1,475 @@
-import { useState, useEffect, useRef } from "react";
-import { Play, Pause, SkipBack, SkipForward, Volume2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Play, Pause, SkipForward, SkipBack, Plus, Trash2, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Slider } from "@/components/ui/slider";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BottomNav } from "@/components/BottomNav";
-import { useMusicPlayer, tracks } from "@/hooks/useMusicPlayer";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
-const playlists = {
-  forYou: [
-    { name: "Your Daily Mix", mood: "Mixed", tracks: 50, color: "hsl(258 30% 65%)" },
-    { name: "Recently Played", mood: "Mixed", tracks: 24, color: "hsl(280 35% 55%)" },
-  ],
-  focus: [
-    { name: "Deep Focus", mood: "Peaceful", tracks: 32, color: "hsl(160 50% 70%)" },
-    { name: "Study Session", mood: "Calm", tracks: 28, color: "hsl(200 70% 70%)" },
-  ],
-  relax: [
-    { name: "Calm Vibes", mood: "Calm", tracks: 24, color: "hsl(200 70% 70%)" },
-    { name: "Chill Nights", mood: "Calm", tracks: 28, color: "hsl(240 50% 65%)" },
-  ],
-  sleep: [
-    { name: "Sleep Sounds", mood: "Peaceful", tracks: 20, color: "hsl(240 50% 65%)" },
-    { name: "Dreamy Ambience", mood: "Peaceful", tracks: 15, color: "hsl(270 60% 70%)" },
-  ],
-};
+interface Song {
+  id: string;
+  title: string;
+  artist?: string;
+  url: string;
+  thumbnail_url?: string;
+  source?: string;
+}
+
+interface Playlist {
+  id: string;
+  name: string;
+  description?: string;
+}
 
 const MusicPlayer = () => {
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const { 
-    currentTrack, 
-    isPlaying, 
-    volume, 
-    currentTime, 
-    duration,
-    setAudioElement,
-    togglePlay, 
-    playTrack,
-    setVolume: setPlayerVolume,
-    setCurrentTime,
-    setDuration,
-    nextTrack,
-    previousTrack
-  } = useMusicPlayer();
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [selectedPlaylist, setSelectedPlaylist] = useState<string | null>(null);
+  const [songs, setSongs] = useState<Song[]>([]);
+  const [currentSongIndex, setCurrentSongIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [showAddSong, setShowAddSong] = useState(false);
+  const [showAddPlaylist, setShowAddPlaylist] = useState(false);
+
+  // Add song form state
+  const [newSong, setNewSong] = useState({
+    title: "",
+    artist: "",
+    url: "",
+    source: "youtube" as "youtube" | "spotify" | "soundcloud" | "direct",
+  });
+
+  // Add playlist form state
+  const [newPlaylist, setNewPlaylist] = useState({
+    name: "",
+    description: "",
+  });
 
   useEffect(() => {
-    if (audioRef.current) {
-      setAudioElement(audioRef.current);
-      
-      const audio = audioRef.current;
-      
-      const updateTime = () => setCurrentTime(audio.currentTime);
-      const updateDuration = () => setDuration(audio.duration);
-      const handleEnded = () => nextTrack();
-      
-      audio.addEventListener('timeupdate', updateTime);
-      audio.addEventListener('loadedmetadata', updateDuration);
-      audio.addEventListener('ended', handleEnded);
-      
-      return () => {
-        audio.removeEventListener('timeupdate', updateTime);
-        audio.removeEventListener('loadedmetadata', updateDuration);
-        audio.removeEventListener('ended', handleEnded);
-      };
+    if (!authLoading && !user) {
+      navigate("/auth");
+    } else if (user) {
+      fetchPlaylists();
     }
-  }, [setAudioElement, setCurrentTime, setDuration, nextTrack]);
+  }, [user, authLoading, navigate]);
 
-  const formatTime = (seconds: number) => {
-    if (!seconds || isNaN(seconds)) return "0:00";
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  useEffect(() => {
+    if (selectedPlaylist) {
+      fetchSongs(selectedPlaylist);
+    }
+  }, [selectedPlaylist]);
+
+  const fetchPlaylists = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("playlists")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setPlaylists(data || []);
+      if (data && data.length > 0) {
+        setSelectedPlaylist(data[0].id);
+      }
+    } catch (error) {
+      console.error("Error fetching playlists:", error);
+    }
   };
 
-  const handleVolumeChange = (value: number[]) => {
-    setPlayerVolume(value[0] / 100);
+  const fetchSongs = async (playlistId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("songs")
+        .select("*")
+        .eq("playlist_id", playlistId)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+      setSongs(data || []);
+      setCurrentSongIndex(0);
+    } catch (error) {
+      console.error("Error fetching songs:", error);
+    }
   };
 
-  const handleProgressChange = (value: number[]) => {
-    setCurrentTime((value[0] / 100) * duration);
+  const handleAddPlaylist = async () => {
+    if (!newPlaylist.name.trim()) {
+      toast.error("Please enter a playlist name");
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("playlists")
+        .insert({
+          name: newPlaylist.name,
+          description: newPlaylist.description,
+          user_id: user!.id,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast.success("Playlist created!");
+      setPlaylists([data, ...playlists]);
+      setSelectedPlaylist(data.id);
+      setNewPlaylist({ name: "", description: "" });
+      setShowAddPlaylist(false);
+    } catch (error: any) {
+      toast.error("Failed to create playlist");
+      console.error(error);
+    }
   };
+
+  const handleAddSong = async () => {
+    if (!newSong.title.trim() || !newSong.url.trim() || !selectedPlaylist) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("songs")
+        .insert({
+          title: newSong.title,
+          artist: newSong.artist,
+          url: newSong.url,
+          source: newSong.source,
+          playlist_id: selectedPlaylist,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast.success("Song added to playlist!");
+      setSongs([...songs, data]);
+      setNewSong({ title: "", artist: "", url: "", source: "youtube" });
+      setShowAddSong(false);
+    } catch (error: any) {
+      toast.error("Failed to add song");
+      console.error(error);
+    }
+  };
+
+  const handleDeleteSong = async (songId: string) => {
+    try {
+      const { error } = await supabase.from("songs").delete().eq("id", songId);
+
+      if (error) throw error;
+
+      toast.success("Song removed");
+      setSongs(songs.filter((s) => s.id !== songId));
+    } catch (error) {
+      toast.error("Failed to remove song");
+      console.error(error);
+    }
+  };
+
+  const getEmbedUrl = (song: Song) => {
+    if (song.source === "youtube") {
+      const videoId = extractYouTubeId(song.url);
+      return videoId ? `https://www.youtube.com/embed/${videoId}?autoplay=${isPlaying ? 1 : 0}` : null;
+    }
+    return song.url;
+  };
+
+  const extractYouTubeId = (url: string) => {
+    const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]+)/);
+    return match ? match[1] : null;
+  };
+
+  const currentSong = songs[currentSongIndex];
+  const embedUrl = currentSong ? getEmbedUrl(currentSong) : null;
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-calm flex items-center justify-center">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-calm pb-24 px-4">
-      <audio ref={audioRef} />
-      
       <div className="max-w-md mx-auto pt-8 space-y-6 animate-fade-in">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Music</h1>
-          <p className="text-sm text-muted-foreground">
-            Curated for your mood
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Music Player</h1>
+            <p className="text-sm text-muted-foreground">Your custom playlists</p>
+          </div>
+          <Button
+            onClick={() => setShowAddPlaylist(true)}
+            size="sm"
+            className="bg-gradient-primary text-primary-foreground"
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            Playlist
+          </Button>
         </div>
 
-        {/* Now Playing */}
-        <Card className="p-6 bg-card/80 backdrop-blur-sm border-border shadow-soft space-y-6">
-          {/* Circular Visualizer */}
-          <div className="flex justify-center">
-            <div className="relative w-48 h-48">
-              <div className="absolute inset-0 rounded-full bg-gradient-primary animate-pulse-glow" />
-              <div className="absolute inset-4 rounded-full bg-card flex items-center justify-center">
-                <div className="w-32 h-32 rounded-full bg-gradient-primary flex items-center justify-center">
-                  <div className="w-24 h-24 rounded-full bg-card flex items-center justify-center">
-                    <div className="w-16 h-16 rounded-full bg-primary animate-pulse-glow" />
-                  </div>
-                </div>
+        {/* Playlist Selector */}
+        {playlists.length > 0 && (
+          <Select value={selectedPlaylist || ""} onValueChange={setSelectedPlaylist}>
+            <SelectTrigger className="bg-card/80 backdrop-blur-sm border-border">
+              <SelectValue placeholder="Select a playlist" />
+            </SelectTrigger>
+            <SelectContent>
+              {playlists.map((playlist) => (
+                <SelectItem key={playlist.id} value={playlist.id}>
+                  {playlist.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        {/* Player Card */}
+        {currentSong && embedUrl ? (
+          <Card className="p-6 bg-card/80 backdrop-blur-sm border-border shadow-soft">
+            <div className="space-y-4">
+              {/* Video/Audio Player */}
+              <div className="aspect-video rounded-lg overflow-hidden bg-secondary">
+                {currentSong.source === "youtube" ? (
+                  <iframe
+                    width="100%"
+                    height="100%"
+                    src={embedUrl}
+                    title={currentSong.title}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <audio
+                    controls
+                    className="w-full"
+                    src={embedUrl}
+                    autoPlay={isPlaying}
+                  />
+                )}
+              </div>
+
+              {/* Song Info */}
+              <div className="text-center">
+                <h3 className="font-semibold text-foreground">{currentSong.title}</h3>
+                {currentSong.artist && (
+                  <p className="text-sm text-muted-foreground">{currentSong.artist}</p>
+                )}
+              </div>
+
+              {/* Controls */}
+              <div className="flex items-center justify-center gap-4">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setCurrentSongIndex(Math.max(0, currentSongIndex - 1))}
+                  disabled={currentSongIndex === 0}
+                  className="rounded-full"
+                >
+                  <SkipBack className="w-5 h-5" />
+                </Button>
+
+                <Button
+                  variant="default"
+                  size="icon"
+                  onClick={() => setIsPlaying(!isPlaying)}
+                  className="rounded-full h-12 w-12 bg-gradient-primary"
+                >
+                  {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setCurrentSongIndex(Math.min(songs.length - 1, currentSongIndex + 1))}
+                  disabled={currentSongIndex === songs.length - 1}
+                  className="rounded-full"
+                >
+                  <SkipForward className="w-5 h-5" />
+                </Button>
               </div>
             </div>
-          </div>
-
-          {/* Track Info */}
-          <div className="text-center space-y-2">
-            <h3 className="text-xl font-semibold text-foreground">
-              {currentTrack?.title || "No track selected"}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {currentTrack?.artist || "Select a track to play"}
+          </Card>
+        ) : (
+          <Card className="p-8 bg-card/80 backdrop-blur-sm border-border text-center">
+            <List className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+            <p className="text-muted-foreground mb-4">
+              {playlists.length === 0
+                ? "Create a playlist to get started"
+                : "No songs in this playlist yet"}
             </p>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="space-y-2">
-            <Slider
-              value={[duration ? (currentTime / duration) * 100 : 0]}
-              max={100}
-              step={0.1}
-              onValueChange={handleProgressChange}
-              className="w-full"
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{formatTime(currentTime)}</span>
-              <span>{formatTime(duration)}</span>
-            </div>
-          </div>
-
-          {/* Controls */}
-          <div className="flex items-center justify-center gap-4">
-            <Button
-              onClick={previousTrack}
-              variant="ghost"
-              size="icon"
-              className="rounded-full hover:bg-secondary"
-            >
-              <SkipBack className="w-5 h-5" />
-            </Button>
-            <Button
-              onClick={togglePlay}
-              size="icon"
-              className="w-16 h-16 rounded-full bg-gradient-primary text-primary-foreground shadow-glow hover:scale-105 transition-transform"
-            >
-              {isPlaying ? (
-                <Pause className="w-6 h-6" />
-              ) : (
-                <Play className="w-6 h-6 ml-1" />
-              )}
-            </Button>
-            <Button
-              onClick={nextTrack}
-              variant="ghost"
-              size="icon"
-              className="rounded-full hover:bg-secondary"
-            >
-              <SkipForward className="w-5 h-5" />
-            </Button>
-          </div>
-
-          {/* Volume */}
-          <div className="flex items-center gap-3">
-            <Volume2 className="w-5 h-5 text-muted-foreground" />
-            <Slider
-              value={[volume * 100]}
-              onValueChange={handleVolumeChange}
-              max={100}
-              step={1}
-              className="flex-1"
-            />
-          </div>
-        </Card>
-
-        {/* Available Tracks */}
-        <Card className="p-4 bg-card/80 backdrop-blur-sm border-border">
-          <h2 className="text-lg font-semibold text-foreground mb-4">
-            Available Tracks
-          </h2>
-          <div className="space-y-2">
-            {tracks.map((track) => (
-              <button
-                key={track.id}
-                onClick={() => playTrack(track)}
-                className={`w-full p-3 rounded-xl flex items-center gap-3 transition-all ${
-                  currentTrack?.id === track.id
-                    ? "bg-primary/20 border border-primary"
-                    : "bg-secondary/50 hover:bg-secondary"
-                }`}
+            {playlists.length > 0 && (
+              <Button
+                onClick={() => setShowAddSong(true)}
+                className="bg-gradient-primary text-primary-foreground"
               >
-                <div className="w-10 h-10 rounded-lg bg-gradient-primary flex items-center justify-center">
-                  <Play className="w-5 h-5 text-white" />
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="font-medium text-foreground text-sm">{track.title}</p>
-                  <p className="text-xs text-muted-foreground">{track.artist}</p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </Card>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Song
+              </Button>
+            )}
+          </Card>
+        )}
 
-        {/* Playlists by Category */}
-        <Tabs defaultValue="forYou" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 bg-card/80">
-            <TabsTrigger value="forYou">For You</TabsTrigger>
-            <TabsTrigger value="focus">Focus</TabsTrigger>
-            <TabsTrigger value="relax">Relax</TabsTrigger>
-            <TabsTrigger value="sleep">Sleep</TabsTrigger>
-          </TabsList>
+        {/* Song List */}
+        {songs.length > 0 && (
+          <Card className="p-4 bg-card/80 backdrop-blur-sm border-border">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-foreground">Playlist</h3>
+              <Button
+                onClick={() => setShowAddSong(true)}
+                size="sm"
+                variant="ghost"
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
 
-          {Object.entries(playlists).map(([key, list]) => (
-            <TabsContent key={key} value={key} className="space-y-3 mt-4">
-              {list.map((playlist) => (
-                <Card
-                  key={playlist.name}
-                  className="p-4 bg-card/60 backdrop-blur-sm border-border hover:scale-[1.02] transition-transform cursor-pointer"
+            <div className="space-y-2">
+              {songs.map((song, index) => (
+                <div
+                  key={song.id}
+                  className={`flex items-center justify-between p-3 rounded-lg transition-colors cursor-pointer ${
+                    index === currentSongIndex
+                      ? "bg-primary/10"
+                      : "hover:bg-secondary"
+                  }`}
+                  onClick={() => setCurrentSongIndex(index)}
                 >
-                  <div className="flex items-center gap-4">
-                    <div
-                      className="w-14 h-14 rounded-xl shadow-glow flex items-center justify-center"
-                      style={{ backgroundColor: playlist.color }}
-                    >
-                      <Play className="w-6 h-6 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-foreground">
-                        {playlist.name}
-                      </h3>
-                      <p className="text-sm text-muted-foreground">
-                        {playlist.tracks} tracks · {playlist.mood}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-foreground truncate">
+                      {song.title}
+                    </p>
+                    {song.artist && (
+                      <p className="text-xs text-muted-foreground truncate">
+                        {song.artist}
                       </p>
-                    </div>
+                    )}
                   </div>
-                </Card>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteSong(song.id);
+                    }}
+                    className="flex-shrink-0"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
               ))}
-            </TabsContent>
-          ))}
-        </Tabs>
+            </div>
+          </Card>
+        )}
       </div>
+
+      {/* Add Playlist Dialog */}
+      <Dialog open={showAddPlaylist} onOpenChange={setShowAddPlaylist}>
+        <DialogContent className="bg-card border-border">
+          <DialogHeader>
+            <DialogTitle>Create Playlist</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="playlist-name">Playlist Name *</Label>
+              <Input
+                id="playlist-name"
+                placeholder="My Playlist"
+                value={newPlaylist.name}
+                onChange={(e) => setNewPlaylist({ ...newPlaylist, name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="playlist-desc">Description</Label>
+              <Input
+                id="playlist-desc"
+                placeholder="Optional description"
+                value={newPlaylist.description}
+                onChange={(e) => setNewPlaylist({ ...newPlaylist, description: e.target.value })}
+              />
+            </div>
+            <Button
+              onClick={handleAddPlaylist}
+              className="w-full bg-gradient-primary text-primary-foreground"
+            >
+              Create Playlist
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Song Dialog */}
+      <Dialog open={showAddSong} onOpenChange={setShowAddSong}>
+        <DialogContent className="bg-card border-border">
+          <DialogHeader>
+            <DialogTitle>Add Song</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="song-title">Song Title *</Label>
+              <Input
+                id="song-title"
+                placeholder="Song name"
+                value={newSong.title}
+                onChange={(e) => setNewSong({ ...newSong, title: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="song-artist">Artist</Label>
+              <Input
+                id="song-artist"
+                placeholder="Artist name"
+                value={newSong.artist}
+                onChange={(e) => setNewSong({ ...newSong, artist: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="song-source">Source</Label>
+              <Select
+                value={newSong.source}
+                onValueChange={(value: any) => setNewSong({ ...newSong, source: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="youtube">YouTube</SelectItem>
+                  <SelectItem value="spotify">Spotify</SelectItem>
+                  <SelectItem value="soundcloud">SoundCloud</SelectItem>
+                  <SelectItem value="direct">Direct URL</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="song-url">URL *</Label>
+              <Input
+                id="song-url"
+                placeholder="https://youtube.com/watch?v=..."
+                value={newSong.url}
+                onChange={(e) => setNewSong({ ...newSong, url: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Paste the full URL from YouTube, Spotify, or any audio file
+              </p>
+            </div>
+            <Button
+              onClick={handleAddSong}
+              className="w-full bg-gradient-primary text-primary-foreground"
+            >
+              Add Song
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <BottomNav />
     </div>
