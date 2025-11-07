@@ -8,6 +8,8 @@ import MoodCalendar from "./pages/MoodCalendar";
 import CalmZone from "./pages/CalmZone";
 import MusicPlayer from "./pages/MusicPlayer";
 import Profile from "./pages/Profile";
+import Auth from "./pages/Auth";
+import TeacherDashboard from "./pages/TeacherDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +26,8 @@ const App = () => (
           <Route path="/calm" element={<CalmZone />} />
           <Route path="/music" element={<MusicPlayer />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/teacher" element={<TeacherDashboard />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

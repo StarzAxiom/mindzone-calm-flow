@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { MoodButton } from "@/components/MoodButton";
 import { MiniPlayer } from "@/components/MiniPlayer";
 import { useMoodStorage } from "@/hooks/useMoodStorage";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const moods = [
@@ -24,7 +26,14 @@ const Home = () => {
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
   const { saveMood, getTodayMood } = useMoodStorage();
   const [todayMood, setTodayMood] = useState(getTodayMood());
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/auth");
+    }
+  }, [user, authLoading, navigate]);
 
   useEffect(() => {
     setTodayMood(getTodayMood());
@@ -37,19 +46,42 @@ const Home = () => {
     return "Good Evening";
   };
 
-  const handleSaveMood = () => {
-    if (selectedMood) {
+  const handleSaveMood = async () => {
+    if (selectedMood && user) {
       const moodData = moods.find(m => m.label === selectedMood);
       if (moodData) {
         const today = new Date().toISOString().split('T')[0];
+        
+        // Save to localStorage
         saveMood(today, moodData.label, moodData.color, moodData.emoji);
         setTodayMood({ date: today, mood: moodData.label, color: moodData.color, emoji: moodData.emoji });
-        toast.success("Mood saved to your calendar");
+        
+        // Save to database
+        try {
+          const { error } = await supabase.from("mood_entries").insert({
+            user_id: user.id,
+            mood: moodData.label.toLowerCase(),
+          });
+
+          if (error) throw error;
+          toast.success("Mood saved to your calendar");
+        } catch (error) {
+          console.error("Error saving mood:", error);
+          toast.error("Failed to save mood to cloud, but saved locally");
+        }
       }
       setShowMoodDialog(false);
       setSelectedMood(null);
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-calm flex items-center justify-center">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-calm pb-24 px-4">

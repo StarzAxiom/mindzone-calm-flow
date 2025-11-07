@@ -1,11 +1,26 @@
-import { Settings, TrendingUp, Bell } from "lucide-react";
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Settings, TrendingUp, Bell, LogOut, GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { BottomNav } from "@/components/BottomNav";
 import { MiniPlayer } from "@/components/MiniPlayer";
+import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
+import { toast } from "sonner";
 
 const Profile = () => {
+  const { user, loading: authLoading, signOut } = useAuth();
+  const { isTeacher, loading: roleLoading } = useUserRole();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/auth");
+    }
+  }, [user, authLoading, navigate]);
+
   const moodData = [
     { day: "Mon", value: 65 },
     { day: "Tue", value: 75 },
@@ -18,6 +33,20 @@ const Profile = () => {
 
   const maxValue = Math.max(...moodData.map((d) => d.value));
 
+  const handleSignOut = async () => {
+    await signOut();
+    toast.success("Signed out successfully");
+    navigate("/auth");
+  };
+
+  if (authLoading || roleLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-calm flex items-center justify-center">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-calm pb-24 px-4">
       <div className="max-w-md mx-auto pt-8 space-y-6 animate-fade-in">
@@ -26,16 +55,29 @@ const Profile = () => {
           <div>
             <h1 className="text-2xl font-bold text-foreground">Profile</h1>
             <p className="text-sm text-muted-foreground">
-              Your wellness insights
+              {user?.email || "Your wellness insights"}
             </p>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="rounded-full bg-card/50 backdrop-blur-sm"
-          >
-            <Settings className="w-5 h-5" />
-          </Button>
+          <div className="flex gap-2">
+            {isTeacher && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate("/teacher")}
+                className="rounded-full bg-card/50 backdrop-blur-sm"
+                title="Teacher Dashboard"
+              >
+                <GraduationCap className="w-5 h-5" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full bg-card/50 backdrop-blur-sm"
+            >
+              <Settings className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
 
         {/* Stats Overview */}
@@ -141,6 +183,16 @@ const Profile = () => {
             </div>
           </div>
         </Card>
+
+        {/* Sign Out Button */}
+        <Button
+          onClick={handleSignOut}
+          variant="outline"
+          className="w-full border-destructive/50 text-destructive hover:bg-destructive/10"
+        >
+          <LogOut className="w-4 h-4 mr-2" />
+          Sign Out
+        </Button>
 
         <p className="text-center text-xs text-muted-foreground italic">
           "One mood at a time."
