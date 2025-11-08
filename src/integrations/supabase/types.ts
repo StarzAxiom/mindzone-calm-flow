@@ -154,6 +154,33 @@ export type Database = {
         }
         Relationships: []
       }
+      user_settings: {
+        Row: {
+          background_color: string
+          created_at: string | null
+          id: string
+          theme: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          background_color?: string
+          created_at?: string | null
+          id?: string
+          theme?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          background_color?: string
+          created_at?: string | null
+          id?: string
+          theme?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

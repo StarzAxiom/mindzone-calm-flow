@@ -73,6 +73,7 @@ const Profile = () => {
             <Button
               variant="ghost"
               size="icon"
+              onClick={() => navigate("/settings")}
               className="rounded-full bg-card/50 backdrop-blur-sm"
             >
               <Settings className="w-5 h-5" />

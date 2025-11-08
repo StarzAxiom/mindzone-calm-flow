@@ -1,41 +1,86 @@
-import { useState } from "react";
-import { Volume2, VolumeX } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Volume2, VolumeX, Play, Pause, RotateCcw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BottomNav } from "@/components/BottomNav";
 import { MiniPlayer } from "@/components/MiniPlayer";
 import lofiPlant from "@/assets/lofi-plant.png";
 import calmWaves from "@/assets/calm-waves.png";
 
 const quotes = [
+  { text: "Breathe in peace, breathe out stress", author: "Unknown" },
+  { text: "You are exactly where you need to be", author: "Unknown" },
+  { text: "This too shall pass", author: "Persian Proverb" },
+  { text: "Be gentle with yourself", author: "Unknown" },
+  { text: "One step at a time", author: "Unknown" },
+];
+
+const guidedExercises = [
   {
-    text: "Breathe in peace, breathe out stress",
-    author: "Unknown",
+    title: "Body Scan Meditation",
+    duration: "10 min",
+    description: "Relax each part of your body, from head to toe"
   },
   {
-    text: "You are exactly where you need to be",
-    author: "Unknown",
+    title: "Loving Kindness",
+    duration: "8 min",
+    description: "Cultivate compassion for yourself and others"
   },
   {
-    text: "This too shall pass",
-    author: "Persian Proverb",
-  },
-  {
-    text: "Be gentle with yourself",
-    author: "Unknown",
-  },
-  {
-    text: "One step at a time",
-    author: "Unknown",
+    title: "Mindful Observation",
+    duration: "5 min",
+    description: "Focus on your surroundings with full awareness"
   },
 ];
 
 const CalmZone = () => {
   const [soundEnabled, setSoundEnabled] = useState(false);
+  const [breathingActive, setBreathingActive] = useState(false);
+  const [breathPhase, setBreathPhase] = useState<"inhale" | "hold" | "exhale">("inhale");
+  const [timerActive, setTimerActive] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes default
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (breathingActive) {
+      interval = setInterval(() => {
+        setBreathPhase((prev) => {
+          if (prev === "inhale") return "hold";
+          if (prev === "hold") return "exhale";
+          return "inhale";
+        });
+      }, 4000);
+    }
+    return () => clearInterval(interval);
+  }, [breathingActive]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (timerActive && timeLeft > 0) {
+      interval = setInterval(() => {
+        setTimeLeft((prev) => prev - 1);
+      }, 1000);
+    } else if (timeLeft === 0) {
+      setTimerActive(false);
+    }
+    return () => clearInterval(interval);
+  }, [timerActive, timeLeft]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const getBreathingText = () => {
+    if (breathPhase === "inhale") return "Breathe In";
+    if (breathPhase === "hold") return "Hold";
+    return "Breathe Out";
+  };
 
   return (
     <div className="min-h-screen bg-gradient-calm pb-24 relative overflow-hidden">
-      {/* Animated background */}
       <div
         className="absolute inset-0 opacity-20 animate-pulse-glow"
         style={{
@@ -46,13 +91,10 @@ const CalmZone = () => {
       />
 
       <div className="max-w-md mx-auto pt-8 px-4 space-y-6 animate-fade-in relative z-10">
-        {/* Header with sound toggle */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Calm Zone</h1>
-            <p className="text-sm text-muted-foreground">
-              Your peaceful sanctuary
-            </p>
+            <p className="text-sm text-muted-foreground">Your peaceful sanctuary</p>
           </div>
           <Button
             onClick={() => setSoundEnabled(!soundEnabled)}
@@ -60,72 +102,164 @@ const CalmZone = () => {
             size="icon"
             className="rounded-full bg-card/50 backdrop-blur-sm"
           >
-            {soundEnabled ? (
-              <Volume2 className="w-5 h-5" />
-            ) : (
-              <VolumeX className="w-5 h-5" />
-            )}
+            {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
           </Button>
         </div>
 
-        {/* Lofi Plant Character */}
-        <div className="flex justify-center py-8">
+        <div className="flex justify-center py-4">
           <img
             src={lofiPlant}
             alt="Calm companion"
-            className="w-48 h-48 animate-float drop-shadow-glow"
+            className="w-32 h-32 animate-float drop-shadow-glow"
           />
         </div>
 
-        {/* Breathing Exercise */}
-        <Card className="p-6 bg-card/80 backdrop-blur-sm border-border shadow-soft">
-          <h3 className="font-semibold text-foreground mb-4">
-            Breathing Exercise
-          </h3>
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-32 h-32 rounded-full bg-primary/20 flex items-center justify-center animate-pulse-glow">
-              <div className="w-24 h-24 rounded-full bg-primary/40 flex items-center justify-center">
-                <span className="text-sm text-foreground font-medium">
-                  Breathe
-                </span>
-              </div>
-            </div>
-            <p className="text-sm text-muted-foreground text-center">
-              Inhale for 4 seconds, hold for 4, exhale for 4
-            </p>
-          </div>
-        </Card>
+        <Tabs defaultValue="breathing" className="w-full">
+          <TabsList className="grid w-full grid-cols-3 bg-card/50 backdrop-blur-sm">
+            <TabsTrigger value="breathing">Breathing</TabsTrigger>
+            <TabsTrigger value="meditation">Meditation</TabsTrigger>
+            <TabsTrigger value="quotes">Quotes</TabsTrigger>
+          </TabsList>
 
-        {/* Calming Quotes Feed */}
-        <div className="space-y-4">
-          {quotes.map((quote, index) => (
-            <Card
-              key={index}
-              className="p-6 bg-card/60 backdrop-blur-sm border-border hover:scale-[1.02] transition-transform cursor-pointer"
-              style={{
-                animationDelay: `${index * 0.1}s`,
-              }}
-            >
-              <blockquote className="space-y-2">
-                <p className="text-foreground font-medium italic">
-                  "{quote.text}"
+          <TabsContent value="breathing" className="space-y-4">
+            <Card className="p-6 bg-card/80 backdrop-blur-sm border-border shadow-soft">
+              <h3 className="font-semibold text-foreground mb-4">Box Breathing</h3>
+              <div className="flex flex-col items-center gap-4">
+                <div
+                  className={`w-32 h-32 rounded-full bg-primary/20 flex items-center justify-center transition-all duration-1000 ${
+                    breathingActive
+                      ? breathPhase === "inhale"
+                        ? "scale-125 bg-primary/30"
+                        : breathPhase === "hold"
+                        ? "scale-125 bg-primary/40"
+                        : "scale-100 bg-primary/20"
+                      : ""
+                  }`}
+                >
+                  <div className="w-24 h-24 rounded-full bg-primary/40 flex items-center justify-center">
+                    <span className="text-sm text-foreground font-medium">
+                      {breathingActive ? getBreathingText() : "Start"}
+                    </span>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => setBreathingActive(!breathingActive)}
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  {breathingActive ? (
+                    <>
+                      <Pause className="w-4 h-4 mr-2" />
+                      Pause
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-4 h-4 mr-2" />
+                      Start Exercise
+                    </>
+                  )}
+                </Button>
+                <p className="text-sm text-muted-foreground text-center">
+                  Follow the circle: Inhale → Hold → Exhale (4 seconds each)
                 </p>
-                <footer className="text-sm text-muted-foreground">
-                  — {quote.author}
-                </footer>
-              </blockquote>
+              </div>
             </Card>
-          ))}
-        </div>
+          </TabsContent>
 
-        {/* Affirmation */}
-        <Card className="p-6 bg-gradient-primary text-primary-foreground shadow-glow">
-          <h3 className="font-semibold mb-2">Today's Affirmation</h3>
-          <p className="text-sm opacity-90">
-            "I am worthy of peace and happiness. I choose to focus on what I can
-            control and let go of what I cannot."
-          </p>
-        </Card>
+          <TabsContent value="meditation" className="space-y-4">
+            <Card className="p-6 bg-card/80 backdrop-blur-sm border-border shadow-soft">
+              <h3 className="font-semibold text-foreground mb-4">Meditation Timer</h3>
+              <div className="flex flex-col items-center gap-4">
+                <div className="text-5xl font-bold text-primary">{formatTime(timeLeft)}</div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => setTimerActive(!timerActive)}
+                    variant={timerActive ? "secondary" : "default"}
+                  >
+                    {timerActive ? (
+                      <>
+                        <Pause className="w-4 h-4 mr-2" />
+                        Pause
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-4 h-4 mr-2" />
+                        Start
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setTimerActive(false);
+                      setTimeLeft(300);
+                    }}
+                    variant="outline"
+                  >
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    Reset
+                  </Button>
+                </div>
+                <div className="grid grid-cols-3 gap-2 w-full">
+                  {[5, 10, 15].map((mins) => (
+                    <Button
+                      key={mins}
+                      onClick={() => {
+                        setTimeLeft(mins * 60);
+                        setTimerActive(false);
+                      }}
+                      variant="outline"
+                      size="sm"
+                    >
+                      {mins} min
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </Card>
+
+            <div className="space-y-3">
+              <h3 className="font-semibold text-foreground flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-primary" />
+                Guided Exercises
+              </h3>
+              {guidedExercises.map((exercise, index) => (
+                <Card
+                  key={index}
+                  className="p-4 bg-card/60 backdrop-blur-sm border-border hover:scale-[1.02] transition-transform cursor-pointer"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-foreground">{exercise.title}</h4>
+                      <p className="text-xs text-muted-foreground">{exercise.description}</p>
+                    </div>
+                    <span className="text-xs text-primary font-medium">{exercise.duration}</span>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="quotes" className="space-y-4">
+            {quotes.map((quote, index) => (
+              <Card
+                key={index}
+                className="p-6 bg-card/60 backdrop-blur-sm border-border hover:scale-[1.02] transition-transform cursor-pointer"
+              >
+                <blockquote className="space-y-2">
+                  <p className="text-foreground font-medium italic">"{quote.text}"</p>
+                  <footer className="text-sm text-muted-foreground">— {quote.author}</footer>
+                </blockquote>
+              </Card>
+            ))}
+
+            <Card className="p-6 bg-gradient-primary text-primary-foreground shadow-glow">
+              <h3 className="font-semibold mb-2">Today's Affirmation</h3>
+              <p className="text-sm opacity-90">
+                "I am worthy of peace and happiness. I choose to focus on what I can control and
+                let go of what I cannot."
+              </p>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
 
       <MiniPlayer />

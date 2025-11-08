@@ -8,6 +8,7 @@ import MoodCalendar from "./pages/MoodCalendar";
 import CalmZone from "./pages/CalmZone";
 import MusicPlayer from "./pages/MusicPlayer";
 import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import NotFound from "./pages/NotFound";
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/calm" element={<CalmZone />} />
           <Route path="/music" element={<MusicPlayer />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/teacher" element={<TeacherDashboard />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
