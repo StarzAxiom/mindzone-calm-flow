@@ -14,6 +14,74 @@ export type Database = {
   }
   public: {
     Tables: {
+      achievements: {
+        Row: {
+          badge_color: string
+          badge_icon: string
+          created_at: string | null
+          criteria_count: number
+          criteria_type: string
+          description: string
+          id: string
+          name: string
+        }
+        Insert: {
+          badge_color: string
+          badge_icon: string
+          created_at?: string | null
+          criteria_count: number
+          criteria_type: string
+          description: string
+          id?: string
+          name: string
+        }
+        Update: {
+          badge_color?: string
+          badge_icon?: string
+          created_at?: string | null
+          criteria_count?: number
+          criteria_type?: string
+          description?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      journal_entries: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          mood_entry_id: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          mood_entry_id?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          mood_entry_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_entries_mood_entry_id_fkey"
+            columns: ["mood_entry_id"]
+            isOneToOne: false
+            referencedRelation: "mood_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mood_entries: {
         Row: {
           created_at: string | null
@@ -35,6 +103,39 @@ export type Database = {
           mood?: string
           note?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      notification_settings: {
+        Row: {
+          created_at: string | null
+          daily_reminder_enabled: boolean | null
+          id: string
+          push_token: string | null
+          reminder_time: string | null
+          updated_at: string | null
+          user_id: string
+          weekly_insights_enabled: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          daily_reminder_enabled?: boolean | null
+          id?: string
+          push_token?: string | null
+          reminder_time?: string | null
+          updated_at?: string | null
+          user_id: string
+          weekly_insights_enabled?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          daily_reminder_enabled?: boolean | null
+          id?: string
+          push_token?: string | null
+          reminder_time?: string | null
+          updated_at?: string | null
+          user_id?: string
+          weekly_insights_enabled?: boolean | null
         }
         Relationships: []
       }
@@ -129,6 +230,38 @@ export type Database = {
             columns: ["playlist_id"]
             isOneToOne: false
             referencedRelation: "playlists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_achievements: {
+        Row: {
+          achievement_id: string | null
+          earned_at: string | null
+          id: string
+          progress: number | null
+          user_id: string
+        }
+        Insert: {
+          achievement_id?: string | null
+          earned_at?: string | null
+          id?: string
+          progress?: number | null
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string | null
+          earned_at?: string | null
+          id?: string
+          progress?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_achievements_achievement_id_fkey"
+            columns: ["achievement_id"]
+            isOneToOne: false
+            referencedRelation: "achievements"
             referencedColumns: ["id"]
           },
         ]

@@ -1,11 +1,11 @@
 import { NavLink } from "react-router-dom";
-import { Home, Calendar, Waves, User } from "lucide-react";
+import { Home, Calendar, Trophy, User } from "lucide-react";
 
 export const BottomNav = () => {
   const navItems = [
     { to: "/", icon: Home, label: "Home" },
     { to: "/calendar", icon: Calendar, label: "Calendar" },
-    { to: "/calm", icon: Waves, label: "Calm Zone" },
+    { to: "/achievements", icon: Trophy, label: "Badges" },
     { to: "/profile", icon: User, label: "Profile" },
   ];
 

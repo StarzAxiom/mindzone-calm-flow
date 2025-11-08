@@ -5,10 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { BottomNav } from "@/components/BottomNav";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { MoodButton } from "@/components/MoodButton";
 import { MiniPlayer } from "@/components/MiniPlayer";
 import { useMoodStorage } from "@/hooks/useMoodStorage";
 import { useAuth } from "@/hooks/useAuth";
+import { useNotifications } from "@/hooks/useNotifications";
+import { useAchievements } from "@/hooks/useAchievements";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -24,9 +27,12 @@ const moods = [
 const Home = () => {
   const [showMoodDialog, setShowMoodDialog] = useState(false);
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  const [journalEntry, setJournalEntry] = useState("");
   const { saveMood, getTodayMood } = useMoodStorage();
   const [todayMood, setTodayMood] = useState(getTodayMood());
   const { user, loading: authLoading } = useAuth();
+  const { permission, requestPermission } = useNotifications();
+  const { checkAndAwardAchievements } = useAchievements();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -58,12 +64,36 @@ const Home = () => {
         
         // Save to database
         try {
-          const { error } = await supabase.from("mood_entries").insert({
-            user_id: user.id,
-            mood: moodData.label.toLowerCase(),
-          });
+          const { data: moodEntry, error } = await supabase
+            .from("mood_entries")
+            .insert({
+              user_id: user.id,
+              mood: moodData.label.toLowerCase(),
+            })
+            .select()
+            .single();
 
           if (error) throw error;
+
+          // Save journal entry if provided
+          if (journalEntry.trim() && moodEntry) {
+            await supabase.from("journal_entries").insert({
+              user_id: user.id,
+              mood_entry_id: moodEntry.id,
+              content: journalEntry,
+            });
+          }
+
+          // Check for achievements
+          const { count } = await supabase
+            .from("mood_entries")
+            .select("*", { count: "exact", head: true })
+            .eq("user_id", user.id);
+
+          if (count !== null) {
+            await checkAndAwardAchievements("total_moods", count);
+          }
+
           toast.success("Mood saved to your calendar");
         } catch (error) {
           console.error("Error saving mood:", error);
@@ -72,8 +102,20 @@ const Home = () => {
       }
       setShowMoodDialog(false);
       setSelectedMood(null);
+      setJournalEntry("");
     }
   };
+
+  useEffect(() => {
+    if (permission === "default" && user) {
+      // Prompt for notification permission after a short delay
+      setTimeout(() => {
+        if (window.confirm("Enable daily mood reminders?")) {
+          requestPermission();
+        }
+      }, 3000);
+    }
+  }, [permission, user]);
 
   if (authLoading) {
     return (
@@ -190,18 +232,34 @@ const Home = () => {
               How are you feeling?
             </DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-3 gap-3 py-4">
-            {moods.map((mood) => (
-              <MoodButton
-                key={mood.label}
-                emoji={mood.emoji}
-                label={mood.label}
-                color={mood.color}
-                selected={selectedMood === mood.label}
-                onClick={() => setSelectedMood(mood.label)}
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-3 gap-3">
+              {moods.map((mood) => (
+                <MoodButton
+                  key={mood.label}
+                  emoji={mood.emoji}
+                  label={mood.label}
+                  color={mood.color}
+                  selected={selectedMood === mood.label}
+                  onClick={() => setSelectedMood(mood.label)}
+                />
+              ))}
+            </div>
+            
+            {/* Journal Entry */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">
+                Journal Entry (Optional)
+              </label>
+              <Textarea
+                placeholder="How are you feeling? Write your thoughts here..."
+                value={journalEntry}
+                onChange={(e) => setJournalEntry(e.target.value)}
+                className="min-h-[100px]"
               />
-            ))}
+            </div>
           </div>
+          
           <Button
             onClick={handleSaveMood}
             disabled={!selectedMood}

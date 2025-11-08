@@ -1,12 +1,38 @@
-import { useState, useEffect } from "react";
-import { Volume2, VolumeX, Play, Pause, RotateCcw, Sparkles } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Volume2, VolumeX, Play, Pause, RotateCcw, Sparkles, Music } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BottomNav } from "@/components/BottomNav";
 import { MiniPlayer } from "@/components/MiniPlayer";
+import { useAchievements } from "@/hooks/useAchievements";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import lofiPlant from "@/assets/lofi-plant.png";
 import calmWaves from "@/assets/calm-waves.png";
+
+const ambientSounds = [
+  {
+    name: "Rain",
+    embed: '<iframe style="border-radius:12px" src="https://open.spotify.com/embed/track/4qVGl7C3CDO89iu9Bv4QBx?utm_source=generator" width="100%" height="80" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>',
+    icon: "🌧️",
+  },
+  {
+    name: "Ocean Waves",
+    embed: '<iframe style="border-radius:12px" src="https://open.spotify.com/embed/track/5pDqjvgYBOONfQ6CJBw9vG?utm_source=generator" width="100%" height="80" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>',
+    icon: "🌊",
+  },
+  {
+    name: "Forest",
+    embed: '<iframe style="border-radius:12px" src="https://open.spotify.com/embed/track/7w52OZm9f9KZy5oLOCPBTn?utm_source=generator" width="100%" height="80" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>',
+    icon: "🌲",
+  },
+  {
+    name: "White Noise",
+    embed: '<iframe style="border-radius:12px" src="https://open.spotify.com/embed/track/5nDdGMaH9LbMU9W4Gxe8C1?utm_source=generator" width="100%" height="80" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>',
+    icon: "⚪",
+  },
+];
 
 const quotes = [
   { text: "Breathe in peace, breathe out stress", author: "Unknown" },
@@ -36,10 +62,26 @@ const guidedExercises = [
 
 const CalmZone = () => {
   const [soundEnabled, setSoundEnabled] = useState(false);
+  const [currentSound, setCurrentSound] = useState(0);
   const [breathingActive, setBreathingActive] = useState(false);
   const [breathPhase, setBreathPhase] = useState<"inhale" | "hold" | "exhale">("inhale");
   const [timerActive, setTimerActive] = useState(false);
   const [timeLeft, setTimeLeft] = useState(300); // 5 minutes default
+  const { checkAndAwardAchievements } = useAchievements();
+  const { user } = useAuth();
+
+  const trackCalmExercise = async () => {
+    if (!user) return;
+    
+    const { count } = await supabase
+      .from("mood_entries")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id);
+
+    if (count !== null) {
+      await checkAndAwardAchievements("calm_exercises", count + 1);
+    }
+  };
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -143,7 +185,10 @@ const CalmZone = () => {
                   </div>
                 </div>
                 <Button
-                  onClick={() => setBreathingActive(!breathingActive)}
+                  onClick={() => {
+                    setBreathingActive(!breathingActive);
+                    if (breathingActive) trackCalmExercise();
+                  }}
                   className="bg-primary hover:bg-primary/90"
                 >
                   {breathingActive ? (
@@ -166,6 +211,44 @@ const CalmZone = () => {
           </TabsContent>
 
           <TabsContent value="meditation" className="space-y-4">
+            {/* Ambient Sounds */}
+            <Card className="p-6 bg-card/80 backdrop-blur-sm border-border shadow-soft">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-foreground flex items-center gap-2">
+                  <Music className="w-5 h-5" />
+                  Ambient Sounds
+                </h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSoundEnabled(!soundEnabled)}
+                >
+                  {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                {ambientSounds.map((sound, index) => (
+                  <Button
+                    key={index}
+                    variant={currentSound === index ? "default" : "outline"}
+                    className="h-auto py-3"
+                    onClick={() => {
+                      setCurrentSound(index);
+                      setSoundEnabled(true);
+                    }}
+                  >
+                    <span className="text-xl mr-2">{sound.icon}</span>
+                    <span className="text-sm">{sound.name}</span>
+                  </Button>
+                ))}
+              </div>
+
+              {soundEnabled && (
+                <div dangerouslySetInnerHTML={{ __html: ambientSounds[currentSound].embed }} />
+              )}
+            </Card>
+
             <Card className="p-6 bg-card/80 backdrop-blur-sm border-border shadow-soft">
               <h3 className="font-semibold text-foreground mb-4">Meditation Timer</h3>
               <div className="flex flex-col items-center gap-4">
@@ -188,7 +271,8 @@ const CalmZone = () => {
                     )}
                   </Button>
                   <Button
-                    onClick={() => {
+                    onClick={async () => {
+                      if (timeLeft < 300) await trackCalmExercise();
                       setTimerActive(false);
                       setTimeLeft(300);
                     }}
